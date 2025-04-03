@@ -359,7 +359,19 @@ app.get("/student/transcript", authenticateToken, async (req, res) => {
 		if (studentResult.rows.length === 0) {
 			return res.status(404).json({ error: "Student not found" });
 		}
-		const student = studentResult.rows[0];
+    const student = studentResult.rows[0];
+
+		const departmentQuery = `
+      SELECT name
+      FROM department WHERE id = $1
+    `;
+		const val = [student.department_id];
+		const departResult = await pool.query(departmentQuery, val);
+		if (departResult.rows.length === 0) {
+			return res.status(404).json({ error: "Department not found" });
+		}
+		const department = departResult.rows[0];
+		const departmentName = department.name;
 
 		// 2) Get courses & grades
 		const gradesQuery = `
@@ -410,9 +422,8 @@ app.get("/student/transcript", authenticateToken, async (req, res) => {
 			.text(`Full Name: ${student.firstname} ${student.lastname}`, {
 				continued: false,
 			})
-			.text(`Student ID: ${student.id}`, { continued: false })
 			.text(`Email: ${student.email}`, { continued: false })
-			.text(`Department: ${student.department_id}`, { continued: false })
+			.text(`Department: ${departmentName}`, { continued: false })
 			.text(`Level: ${student.level}`, { continued: false });
 
 		// Calculate CGPA
