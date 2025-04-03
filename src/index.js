@@ -8,10 +8,19 @@ const cookieParser = require("cookie-parser");
 const { DB_URL, JWT_SECRET, JWT_EXPIRES_IN } = require("./env");
 const { v4: uuidv4 } = require("uuid");
 const path = require("path");
+const cors = require("cors");
 
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
+app.use(
+	cors({
+		origin: "http://localhost:5173", // Your frontend URL
+		credentials: true, // Allow credentials (cookies)
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
+	})
+);
 
 // 1) POSTGRES CONFIG
 // ----------------------------------------
