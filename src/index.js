@@ -26,6 +26,7 @@ app.use(
 // ----------------------------------------
 const pool = new Pool({
 	connectionString: DB_URL,
+  ssl: true
 });
 
 // If you want to switch semesters, just change this constant:
@@ -243,6 +244,35 @@ app.get("/student/offerable-courses", authenticateToken, async (req, res) => {
 	}
 });
 
+app.get("/student/courses", authenticateToken, async(req, res) =>{
+  try {
+    const userId = req.userId;
+
+    const query =`SELECT DISTINCT
+  r.course_id, 
+  c.name, 
+  c.code, 
+  c.unit, 
+  c.description, 
+  d.mode
+FROM student_course_registration r
+JOIN course c ON c.id = r.course_id
+JOIN departmental_course d ON d.course_id = c.id
+WHERE r.student_id = $1;
+`
+    const values = [userId]
+    console.log(userId)
+    const {rows: courses} = await pool.query(query, values)
+    console.log(courses)
+    const compulsory = courses.filter((c) => c.mode === "COMPULSORY");
+		const electives = courses.filter((c) => c.mode === "ELECTIVE");
+    return res.json({compulsory, electives})
+  } catch (error) {
+    console.error("Offerable courses error:", error);
+		res.status(500).json({ error: "Server error" });
+  }
+})
+
 /**
  * POST /student/register-courses
  * Body: { "electiveCourseIds": ["CSC101", "ENG203", ...] }
@@ -312,16 +342,16 @@ app.post("/student/register-courses", authenticateToken, async (req, res) => {
 
 /**
  * GET /student/cgpa
- * Calculate CGPA from student_course_grade (grade => points, use course.unit).
+ * Calculate CGPA from student_course_registration (grade => points, use course.unit).
  */
 app.get("/student/cgpa", authenticateToken, async (req, res) => {
 	try {
 		const userId = req.userId;
 		const query = `
       SELECT g.grade, c.unit
-      FROM student_course_grade g
+      FROM student_course_registration g
       JOIN course c ON g.course_id = c.id
-      WHERE g.student_id = $1
+      WHERE g.student_id = $1 AND  g.grade IS NOT NULL
     `;
 		const { rows } = await pool.query(query, [userId]);
 
@@ -344,7 +374,7 @@ app.get("/student/cgpa", authenticateToken, async (req, res) => {
 
 /**
  * GET /student/transcript
- * Streams a PDF with student's courses & grades from student_course_grade
+ * Streams a PDF with student's courses & grades from student_course_registration
  */
 app.get("/student/transcript", authenticateToken, async (req, res) => {
 	try {
@@ -376,9 +406,9 @@ app.get("/student/transcript", authenticateToken, async (req, res) => {
 		// 2) Get courses & grades
 		const gradesQuery = `
       SELECT g.grade, g.semester, c.name AS course_name, c.unit
-      FROM student_course_grade g
+      FROM student_course_registration g
       JOIN course c ON g.course_id = c.id
-      WHERE g.student_id = $1
+      WHERE g.student_id = $1 AND g.grade IS NOT NULL
     `;
 		const { rows: gradeRows } = await pool.query(gradesQuery, [userId]);
 
@@ -618,6 +648,5 @@ app.get("/student/transcript", authenticateToken, async (req, res) => {
 // ----------------------------------------
 const PORT = 3000;
 app.listen(PORT, () => {
-    console.log("Database URL:", DB_URL);
   console.log(`Server running on port ${PORT}`);
 });
