@@ -303,16 +303,16 @@ app.post("/student/register-courses", authenticateToken, async (req, res) => {
 
 /**
  * GET /student/cgpa
- * Calculate CGPA from student_course_grade (grade => points, use course.unit).
+ * Calculate CGPA from student_course_registration (grade => points, use course.unit).
  */
 app.get("/student/cgpa", authenticateToken, async (req, res) => {
 	try {
 		const userId = req.userId;
 		const query = `
       SELECT g.grade, c.unit
-      FROM student_course_grade g
+      FROM student_course_registration g
       JOIN course c ON g.course_id = c.id
-      WHERE g.student_id = $1
+      WHERE g.student_id = $1 AND  g.grade IS NOT NULL
     `;
 		const { rows } = await pool.query(query, [userId]);
 
@@ -335,7 +335,7 @@ app.get("/student/cgpa", authenticateToken, async (req, res) => {
 
 /**
  * GET /student/transcript
- * Streams a PDF with student's courses & grades from student_course_grade
+ * Streams a PDF with student's courses & grades from student_course_registration
  */
 app.get("/student/transcript", authenticateToken, async (req, res) => {
 	try {
@@ -355,9 +355,9 @@ app.get("/student/transcript", authenticateToken, async (req, res) => {
 		// 2) Get courses & grades
 		const gradesQuery = `
       SELECT g.grade, g.semester, c.name AS course_name, c.unit
-      FROM student_course_grade g
+      FROM student_course_registration g
       JOIN course c ON g.course_id = c.id
-      WHERE g.student_id = $1
+      WHERE g.student_id = $1 AND scr.grade IS NOT NULL
     `;
 		const { rows: gradeRows } = await pool.query(gradesQuery, [userId]);
 
